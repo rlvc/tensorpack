@@ -121,7 +121,7 @@ _C.BACKBONE.WEIGHTS = ''
 # To train from an existing COCO model, use the path to that file, and change
 #   the other configurations according to that model.
 
-_C.BACKBONE.RESNET_NUM_BLOCKS = [3, 4, 6, 3]     # for resnet50
+_C.BACKBONE.RESNET_NUM_BLOCKS = [3, 4, 23, 3]     # for resnet50
 # RESNET_NUM_BLOCKS = [3, 4, 23, 3]    # for resnet101
 _C.BACKBONE.FREEZE_AFFINE = False   # do not train affine parameters inside norm layers
 _C.BACKBONE.NORM = 'FreezeBN'  # options: FreezeBN, SyncBN, GN, None
@@ -153,13 +153,13 @@ _C.TRAIN.STARTING_EPOCH = 1  # the first epoch to start with, useful to continue
 # When the total bs!=8, the actual iterations to decrease learning rate, and
 # the base learning rate are computed from BASE_LR and LR_SCHEDULE.
 # Therefore, there is *no need* to modify the config if you only change the number of GPUs.
-_C.TRAIN.LR_SCHEDULE = "1x"      # "1x" schedule in detectron
+_C.TRAIN.LR_SCHEDULE = "3x"      # "1x" schedule in detectron
 _C.TRAIN.EVAL_PERIOD = 50  # period (epochs) to run evaluation
 _C.TRAIN.CHECKPOINT_PERIOD = 20  # period (epochs) to save model
 
 # preprocessing --------------------
 # Alternative old (worse & faster) setting: 600
-_C.PREPROC.TRAIN_SHORT_EDGE_SIZE = [800, 800]  # [min, max] to sample from
+_C.PREPROC.TRAIN_SHORT_EDGE_SIZE = [640, 800]  # [min, max] to sample from
 _C.PREPROC.TEST_SHORT_EDGE_SIZE = 800
 _C.PREPROC.MAX_SIZE = 1333
 # mean and std in RGB order.
@@ -219,7 +219,7 @@ _C.MRCNN.HEAD_DIM = 256
 _C.MRCNN.ACCURATE_PASTE = True  # slightly more aligned results, but very slow on numpy
 
 # Cascade R-CNN, only available in FPN mode
-_C.FPN.CASCADE = False
+_C.FPN.CASCADE = True
 _C.CASCADE.IOUS = [0.5, 0.6, 0.7]
 _C.CASCADE.BBOX_REG_WEIGHTS = [[10., 10., 5., 5.], [20., 20., 10., 10.], [30., 30., 15., 15.]]
 
@@ -228,7 +228,7 @@ _C.TEST.FRCNN_NMS_THRESH = 0.5
 
 # Smaller threshold value gives significantly better mAP. But we use 0.05 for consistency with Detectron.
 # mAP with 1e-4 threshold can be found at https://github.com/tensorpack/tensorpack/commit/26321ae58120af2568bdbf2269f32aa708d425a8#diff-61085c48abee915b584027e1085e1043  # noqa
-_C.TEST.RESULT_SCORE_THRESH = 0.05
+_C.TEST.RESULT_SCORE_THRESH = 1e-4
 _C.TEST.RESULT_SCORE_THRESH_VIS = 0.5   # only visualize confident results
 _C.TEST.RESULTS_PER_IM = 100
 

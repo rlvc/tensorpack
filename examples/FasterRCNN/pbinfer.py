@@ -13,30 +13,18 @@ from viz import (
     draw_annotation, draw_final_outputs, draw_predictions,
     draw_proposal_recall, draw_final_outputs_blackwhite)
 from config import finalize_configs
-import argparse
+# import argparse
 import TopsInference
 model_path = "/tmp/maskrcnn_fix.pb"
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config', help="A list of KEY=VALUE to overwrite those defined in config.py",
-                        nargs='+')
-    args = parser.parse_args()
-    cfg.update_args(args.config)
-    register_coco(cfg.DATA.BASEDIR)  # add COCO datasets to the registry
-    register_balloon(cfg.DATA.BASEDIR)
+    register_coco(cfg.DATA.BASEDIR)
     finalize_configs(is_training=False)
-    cfg.TEST.RESULT_SCORE_THRESH = cfg.TEST.RESULT_SCORE_THRESH_VIS
-    # # print(len(cfg.DATA.CLASS_NAMES))
     img = cv2.imread("./000000000139.jpg", cv2.IMREAD_COLOR)
     orig_shape = img.shape[:2]
-    # # print("orig_shape = {}".format(orig_shape))
     resizer = CustomResize(cfg.PREPROC.TEST_SHORT_EDGE_SIZE, cfg.PREPROC.MAX_SIZE)
-    resized_img = resizer.augment(img)
-    # np.save("input.npy",resized_img)
-    # print("resized_shape = {}".format(resized_img.shape))
+    resized_img = resizer.augment(img).astype(np.float32)
     scale = np.sqrt(resized_img.shape[0] * 1.0 / img.shape[0] * resized_img.shape[1] / img.shape[1])
-    resized_img = np.load("/tmp/input.npy").astype(np.float32)
-    print(resized_img.shape)
+    # resized_img1 = np.load("/tmp/input.npy").astype(np.float32)
     with TopsInference.device(0, 0):
         os.environ['DTU_UMD_FLAGS'] = 'ib_pool_size=209715200'
         
@@ -252,9 +240,8 @@ if __name__ == '__main__':
 
                     # Some slow numpy postprocessing:
                     boxes = boxes / scale
-                # boxes are already clipped inside the graph, but after the floating point scaling, this may not be true any more.
+                    # boxes are already clipped inside the graph, but after the floating point scaling, this may not be true any more.
                     boxes = clip_boxes(boxes, orig_shape)
-                # if masks:
                     full_masks = [_paste_mask(box, mask, orig_shape)
                                 for box, mask in zip(boxes, masks)]
                     masks = full_masks

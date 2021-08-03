@@ -43,15 +43,25 @@ if __name__ == '__main__':
                                 'fpn/posthoc_3x3_p2/output', 
                                 'fpn/posthoc_3x3_p3/output',
                                 'fpn/posthoc_3x3_p4/output',
-                                'fpn/posthoc_3x3_p5/output'])
+                                'fpn/posthoc_3x3_p5/output',
+                                'generate_fpn_proposals/Lvl2/Reshape_1',
+                                'generate_fpn_proposals/Lvl3/Reshape_1',
+                                'generate_fpn_proposals/Lvl4/Reshape_1',
+                                'generate_fpn_proposals/Lvl5/Reshape_1',
+                                'generate_fpn_proposals/Lvl6/Reshape_1',
+                                'rpn/transpose_1',
+                                'rpn_1/transpose_1',
+                                'rpn_2/transpose_1',
+                                'rpn_3/transpose_1',
+                                'rpn_4/transpose_1'])
             network_backbone = tf_parser_backbone.read(model_path)
             optimizer = TopsInference.create_optimizer()
             engine_backbone = optimizer.build(network_backbone)
-            engine_backbone.save_executable("backbone.exec")
+            engine_backbone.save_executable("./engines/backbone.exec")
        
         #FC cascade_rcnn_stage1
-        if(os.path.isfile("./fc_1.exec")):
-             engine_fc_1 = TopsInference.load("fc_1.exec")
+        if(os.path.isfile("./engines/fc_1.exec")):
+             engine_fc_1 = TopsInference.load("./engines/fc_1.exec")
         else:
             tf_parser_fc_1 = TopsInference.create_parser(TopsInference.TF_MODEL)
             tf_parser_fc_1.set_input_names(['cascade_rcnn_stage1/multilevel_roi_align/output'])
@@ -60,11 +70,11 @@ if __name__ == '__main__':
             network_fc_1 = tf_parser_fc_1.read(model_path)
             optimizer = TopsInference.create_optimizer()
             engine_fc_1 = optimizer.build(network_fc_1)
-            engine_fc_1.save_executable("fc_1.exec")
+            engine_fc_1.save_executable("./engines/fc_1.exec")
 
         #FC cascade_rcnn_stage2
-        if(os.path.isfile("./fc_2.exec")):
-             engine_fc_2 = TopsInference.load("fc_2.exec")
+        if(os.path.isfile("./engines/fc_2.exec")):
+             engine_fc_2 = TopsInference.load("./engines/fc_2.exec")
         else:
             tf_parser_fc_2 = TopsInference.create_parser(TopsInference.TF_MODEL)
             tf_parser_fc_2.set_input_names(['cascade_rcnn_stage2/multilevel_roi_align/output'])
@@ -73,11 +83,11 @@ if __name__ == '__main__':
             network_fc_2 = tf_parser_fc_2.read(model_path)
             optimizer = TopsInference.create_optimizer()
             engine_fc_2 = optimizer.build(network_fc_2)
-            engine_fc_2.save_executable("fc_2.exec")
+            engine_fc_2.save_executable("./engines/fc_2.exec")
 
         #FC cascade_rcnn_stage3
-        if(os.path.isfile("./fc_3.exec")):
-             engine_fc_3 = TopsInference.load("fc_3.exec")
+        if(os.path.isfile("./engines/fc_3.exec")):
+             engine_fc_3 = TopsInference.load("./engines/fc_3.exec")
         else:
             tf_parser_fc_3 = TopsInference.create_parser(TopsInference.TF_MODEL)
             tf_parser_fc_3.set_input_names(['cascade_rcnn_stage3/multilevel_roi_align/output'])
@@ -86,11 +96,11 @@ if __name__ == '__main__':
             network_fc_3 = tf_parser_fc_3.read(model_path)
             optimizer = TopsInference.create_optimizer()
             engine_fc_3 = optimizer.build(network_fc_3)
-            engine_fc_3.save_executable("fc_0.exec")
+            engine_fc_3.save_executable("./engines/fc_0.exec")
 
         #FC maskrcnn
-        if(os.path.isfile("./fc_maskrcnn.exec")):
-             engine_fc_maskrcnn = TopsInference.load("fc_maskrcnn.exec")
+        if(os.path.isfile("./engines/fc_maskrcnn.exec")):
+             engine_fc_maskrcnn = TopsInference.load("./engines/fc_maskrcnn.exec")
         else:
             tf_parser_fc_maskrcnn = TopsInference.create_parser(TopsInference.TF_MODEL)
             tf_parser_fc_maskrcnn.set_input_names(['multilevel_roi_align/output'])
@@ -99,7 +109,7 @@ if __name__ == '__main__':
             network_fc_maskrcnn = tf_parser_fc_maskrcnn.read(model_path)
             optimizer = TopsInference.create_optimizer()
             engine_fc_maskrcnn = optimizer.build(network_fc_maskrcnn)
-            engine_fc_maskrcnn.save_executable("fc_maskrcnn.exec")
+            engine_fc_maskrcnn.save_executable("./engines/fc_maskrcnn.exec")
         
         with tf.device("/device:CPU:0"):
             tf.compat.v1.reset_default_graph()
@@ -117,7 +127,16 @@ if __name__ == '__main__':
                         print("="*88)
                         time_total_begin = time.time()
                         time_begin = time.time()
-                        input = sess.graph.get_tensor_by_name('image:0')
+                        # # standard input
+                        # input = sess.graph.get_tensor_by_name('image:0')
+
+                        # standard output
+                        boxes = sess.graph.get_tensor_by_name('output/boxes:0')
+                        scores = sess.graph.get_tensor_by_name('output/scores:0')
+                        labels = sess.graph.get_tensor_by_name('output/labels:0')
+                        masks = sess.graph.get_tensor_by_name('output/masks:0')
+
+                        # backbone output
                         input_fpn_out_2 = sess.graph.get_tensor_by_name(
                             'fpn/posthoc_3x3_p2/output:0')
                         input_fpn_out_3 = sess.graph.get_tensor_by_name(
@@ -126,10 +145,27 @@ if __name__ == '__main__':
                             'fpn/posthoc_3x3_p4/output:0')
                         input_fpn_out_5 = sess.graph.get_tensor_by_name(
                             'fpn/posthoc_3x3_p5/output:0') 
-                        boxes = sess.graph.get_tensor_by_name('output/boxes:0')
-                        scores = sess.graph.get_tensor_by_name('output/scores:0')
-                        labels = sess.graph.get_tensor_by_name('output/labels:0')
-                        masks = sess.graph.get_tensor_by_name('output/masks:0')
+                        
+                        Lvl6_Reshape_1 = sess.graph.get_tensor_by_name(
+                            'generate_fpn_proposals/Lvl6/Reshape_1:0')
+                        Lvl5_Reshape_1 = sess.graph.get_tensor_by_name(
+                            'generate_fpn_proposals/Lvl5/Reshape_1:0')
+                        Lvl4_Reshape_1 = sess.graph.get_tensor_by_name(
+                            'generate_fpn_proposals/Lvl4/Reshape_1:0')
+                        Lvl3_Reshape_1 = sess.graph.get_tensor_by_name(
+                            'generate_fpn_proposals/Lvl3/Reshape_1:0')
+                        Lvl2_Reshape_1 = sess.graph.get_tensor_by_name(
+                            'generate_fpn_proposals/Lvl2/Reshape_1:0')
+                        rpn_trans = sess.graph.get_tensor_by_name('rpn/transpose_1:0')
+                        rpn1_trans = sess.graph.get_tensor_by_name('rpn_1/transpose_1:0')
+                        rpn2_trans = sess.graph.get_tensor_by_name('rpn_2/transpose_1:0')
+                        rpn3_trans = sess.graph.get_tensor_by_name('rpn_3/transpose_1:0')
+                        rpn4_trans = sess.graph.get_tensor_by_name('rpn_4/transpose_1:0')
+                        # crop_resize_1 input
+
+                        # crop_resize_1 output
+                        
+                        #fc_1
                         fc_1_in = sess.graph.get_tensor_by_name('cascade_rcnn_stage1/multilevel_roi_align/output:0')
                         fc_1_out = sess.graph.get_tensor_by_name('cascade_rcnn_stage1/head/fc7/output:0')
                         fc_2_in = sess.graph.get_tensor_by_name('cascade_rcnn_stage2/multilevel_roi_align/output:0')
@@ -164,7 +200,17 @@ if __name__ == '__main__':
                                                 input_fpn_out_2:dtu_outputs_backbone[0],
                                                 input_fpn_out_3:dtu_outputs_backbone[1],
                                                 input_fpn_out_4:dtu_outputs_backbone[2],
-                                                input_fpn_out_5:dtu_outputs_backbone[3]
+                                                input_fpn_out_5:dtu_outputs_backbone[3],
+                                                Lvl2_Reshape_1:dtu_outputs_backbone[4],
+                                                Lvl3_Reshape_1:dtu_outputs_backbone[5],
+                                                Lvl4_Reshape_1:dtu_outputs_backbone[6],
+                                                Lvl5_Reshape_1:dtu_outputs_backbone[7],
+                                                Lvl6_Reshape_1:dtu_outputs_backbone[8],
+                                                rpn_trans:dtu_outputs_backbone[9],
+                                                rpn1_trans:dtu_outputs_backbone[10],
+                                                rpn2_trans:dtu_outputs_backbone[11],
+                                                rpn3_trans:dtu_outputs_backbone[12],
+                                                rpn4_trans:dtu_outputs_backbone[13],
                                             })
                         time_end = time.time()
                         duration_cpu_fc_1_in = time_end - time_begin

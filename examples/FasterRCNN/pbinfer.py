@@ -1,8 +1,12 @@
 from genericpath import isfile
+import time
 import cv2
 from dataset import DatasetRegistry, register_coco, register_balloon
 import numpy as np
 import os
+os.environ['KMP_WARNINGS'] = '0'
+os.environ['ENFLAME_LOG_LEVEL'] = 'FATAL'
+os.environ['SDK_LOG_LEVEL'] = '3'
 import tensorflow as tf
 from config import config as cfg
 from eval import _paste_mask, DetectionResult
@@ -29,8 +33,8 @@ if __name__ == '__main__':
         os.environ['DTU_UMD_FLAGS'] = 'ib_pool_size=209715200'
         
         ## BACKBONE
-        if(os.path.isfile("./backbone.exec")):
-             engine_backbone = TopsInference.load("backbone.exec")
+        if(os.path.isfile("./engines/backbone.exec")):
+             engine_backbone = TopsInference.load("./engines/backbone.exec")
         else:
             tf_parser_backbone = TopsInference.create_parser(TopsInference.TF_MODEL)
             tf_parser_backbone.set_input_names(['image'])
@@ -98,145 +102,206 @@ if __name__ == '__main__':
             engine_fc_maskrcnn.save_executable("fc_maskrcnn.exec")
         
         with tf.device("/device:CPU:0"):
-            tf.reset_default_graph()
-            with tf.Session() as sess:
+            tf.compat.v1.reset_default_graph()
+            with tf.compat.v1.Session() as sess:
                 with tf.gfile.FastGFile(model_path, 'rb') as f:
-                    graph_def = tf.GraphDef()
+                    graph_def = tf.compat.v1.GraphDef()
                     graph_def.ParseFromString(f.read())
                     sess.graph.as_default()
                     tf.import_graph_def(graph_def, name='')
-                    sess.run(tf.global_variables_initializer())
+                    sess.run(tf.compat.v1.global_variables_initializer())
                     
-                    input = sess.graph.get_tensor_by_name('image:0')
-                    input_fpn_out_2 = sess.graph.get_tensor_by_name(
-                        'fpn/posthoc_3x3_p2/output:0')
-                    input_fpn_out_3 = sess.graph.get_tensor_by_name(
-                        'fpn/posthoc_3x3_p3/output:0')
-                    input_fpn_out_4 = sess.graph.get_tensor_by_name(
-                        'fpn/posthoc_3x3_p4/output:0')
-                    input_fpn_out_5 = sess.graph.get_tensor_by_name(
-                        'fpn/posthoc_3x3_p5/output:0') 
-                    boxes = sess.graph.get_tensor_by_name('output/boxes:0')
-                    scores = sess.graph.get_tensor_by_name('output/scores:0')
-                    labels = sess.graph.get_tensor_by_name('output/labels:0')
-                    masks = sess.graph.get_tensor_by_name('output/masks:0')
-                    fc_1_in = sess.graph.get_tensor_by_name('cascade_rcnn_stage1/multilevel_roi_align/output:0')
-                    fc_1_out = sess.graph.get_tensor_by_name('cascade_rcnn_stage1/head/fc7/output:0')
-                    fc_2_in = sess.graph.get_tensor_by_name('cascade_rcnn_stage2/multilevel_roi_align/output:0')
-                    fc_2_out = sess.graph.get_tensor_by_name('cascade_rcnn_stage2/head/fc7/output:0')
-                    fc_3_in = sess.graph.get_tensor_by_name('cascade_rcnn_stage3/multilevel_roi_align/output:0')
-                    fc_3_out = sess.graph.get_tensor_by_name('cascade_rcnn_stage3/head/fc7/output:0')
-                    fc_maskrcnn_in = sess.graph.get_tensor_by_name('multilevel_roi_align/output:0')
-                    fc_maskrcnn_out = sess.graph.get_tensor_by_name('maskrcnn/fcn3/output:0')
+                    for i in range(3):
+                        print("="*88)
+                        print("CURRENT {} ROUND".format(i + 1))
+                        print("="*88)
+                        time_total_begin = time.time()
+                        time_begin = time.time()
+                        input = sess.graph.get_tensor_by_name('image:0')
+                        input_fpn_out_2 = sess.graph.get_tensor_by_name(
+                            'fpn/posthoc_3x3_p2/output:0')
+                        input_fpn_out_3 = sess.graph.get_tensor_by_name(
+                            'fpn/posthoc_3x3_p3/output:0')
+                        input_fpn_out_4 = sess.graph.get_tensor_by_name(
+                            'fpn/posthoc_3x3_p4/output:0')
+                        input_fpn_out_5 = sess.graph.get_tensor_by_name(
+                            'fpn/posthoc_3x3_p5/output:0') 
+                        boxes = sess.graph.get_tensor_by_name('output/boxes:0')
+                        scores = sess.graph.get_tensor_by_name('output/scores:0')
+                        labels = sess.graph.get_tensor_by_name('output/labels:0')
+                        masks = sess.graph.get_tensor_by_name('output/masks:0')
+                        fc_1_in = sess.graph.get_tensor_by_name('cascade_rcnn_stage1/multilevel_roi_align/output:0')
+                        fc_1_out = sess.graph.get_tensor_by_name('cascade_rcnn_stage1/head/fc7/output:0')
+                        fc_2_in = sess.graph.get_tensor_by_name('cascade_rcnn_stage2/multilevel_roi_align/output:0')
+                        fc_2_out = sess.graph.get_tensor_by_name('cascade_rcnn_stage2/head/fc7/output:0')
+                        fc_3_in = sess.graph.get_tensor_by_name('cascade_rcnn_stage3/multilevel_roi_align/output:0')
+                        fc_3_out = sess.graph.get_tensor_by_name('cascade_rcnn_stage3/head/fc7/output:0')
+                        fc_maskrcnn_in = sess.graph.get_tensor_by_name('multilevel_roi_align/output:0')
+                        fc_maskrcnn_out = sess.graph.get_tensor_by_name('maskrcnn/fcn3/output:0')
+                        time_end = time.time()
+                        duration_tf_find_tensor = time_end - time_begin
+                        print("[TIME][CPU] find tensor time-consuming: {:.3f}ms"
+                            .format(duration_tf_find_tensor * 1000))
+                        # DTU RUN backbone
+                        time_begin = time.time()
+                        dtu_outputs_backbone = []
+                        engine_backbone.run(
+                            [resized_img], dtu_outputs_backbone,
+                            TopsInference.TIF_ENGINE_RSC_IN_HOST_OUT_HOST)
+                        time_end = time.time()
+                        duration_dtu_backbone = time_end - time_begin
+                        print("[TIME][DTU] backbone time-consuming: {:.3f}ms"
+                            .format(duration_dtu_backbone * 1000))
+                        
+                        # CPU RUN fc_1_in
+                        time_begin = time.time()
+                        foutputs = sess.run(
+                                            [
+                                                fc_1_in
+                                            ],
+                                            feed_dict={
+                                                # input: resized_img
+                                                input_fpn_out_2:dtu_outputs_backbone[0],
+                                                input_fpn_out_3:dtu_outputs_backbone[1],
+                                                input_fpn_out_4:dtu_outputs_backbone[2],
+                                                input_fpn_out_5:dtu_outputs_backbone[3]
+                                            })
+                        time_end = time.time()
+                        duration_cpu_fc_1_in = time_end - time_begin
+                        print("[TIME][CPU] calc fc_1_in time-consuming: {:.3f}ms"
+                            .format(duration_cpu_fc_1_in * 1000))
+                        
+                        # DTU RUN fc_1_out
+                        time_begin = time.time()
+                        dtu_outputs_fc_1 = []
+                        engine_fc_1.run(
+                            [foutputs[0]], dtu_outputs_fc_1,
+                            TopsInference.TIF_ENGINE_RSC_IN_HOST_OUT_HOST)
+                        time_end = time.time()
+                        duration_dtu_fc_1 = time_end - time_begin
+                        print("[TIME][DTU] fc_1 time-consuming: {:.3f}ms"
+                            .format(duration_dtu_fc_1 * 1000))
 
-                    # DTU RUN backbone
-                    dtu_outputs_backbone = []
-                    engine_backbone.run(
-                        [resized_img], dtu_outputs_backbone,
-                        TopsInference.TIF_ENGINE_RSC_IN_HOST_OUT_HOST)
-                    
-                    # CPU RUN fc_1_in
-                    foutputs = sess.run(
-                                        [
-                                            fc_1_in
-                                        ],
-                                        feed_dict={
-                                            # input: resized_img
-                                            input_fpn_out_2:dtu_outputs_backbone[0],
-                                            input_fpn_out_3:dtu_outputs_backbone[1],
-                                            input_fpn_out_4:dtu_outputs_backbone[2],
-                                            input_fpn_out_5:dtu_outputs_backbone[3]
-                                        })
-                    
-                    # DTU RUN fc_1_out
-                    dtu_outputs_fc_1 = []
-                    engine_fc_1.run(
-                        [foutputs[0]], dtu_outputs_fc_1,
-                        TopsInference.TIF_ENGINE_RSC_IN_HOST_OUT_HOST)
+                        # CPU RUN fc_2_in
+                        time_begin = time.time()
+                        foutputs = sess.run(
+                                            [
+                                                fc_2_in
+                                            ],
+                                            feed_dict={
+                                                # input: resized_img
+                                                input_fpn_out_2:dtu_outputs_backbone[0],
+                                                input_fpn_out_3:dtu_outputs_backbone[1],
+                                                input_fpn_out_4:dtu_outputs_backbone[2],
+                                                input_fpn_out_5:dtu_outputs_backbone[3],
+                                                fc_1_out:dtu_outputs_fc_1[0]
+                                            })
+                        time_end = time.time()
+                        duration_cpu_fc_2_in = time_end - time_begin
+                        print("[TIME][CPU] calc fc_2_in time-consuming: {:.3f}ms"
+                            .format(duration_cpu_fc_2_in * 1000))
+                        
+                        # DTU RUN fc_2_out
+                        time_begin = time.time()
+                        dtu_outputs_fc_2 = []
+                        engine_fc_2.run(
+                            [foutputs[0]], dtu_outputs_fc_2,
+                            TopsInference.TIF_ENGINE_RSC_IN_HOST_OUT_HOST)
+                        time_end = time.time()
+                        duration_dtu_fc_2 = time_end - time_begin
+                        print("[TIME][DTU] fc_2 time-consuming: {:.3f}ms"
+                            .format(duration_dtu_fc_2 * 1000))
 
-                    # CPU RUN fc_2_in
-                    foutputs = sess.run(
-                                        [
-                                            fc_2_in
-                                        ],
-                                        feed_dict={
-                                            # input: resized_img
-                                            input_fpn_out_2:dtu_outputs_backbone[0],
-                                            input_fpn_out_3:dtu_outputs_backbone[1],
-                                            input_fpn_out_4:dtu_outputs_backbone[2],
-                                            input_fpn_out_5:dtu_outputs_backbone[3],
-                                            fc_1_out:dtu_outputs_fc_1[0]
-                                        })
-                    
-                    # DTU RUN fc_2_out
-                    dtu_outputs_fc_2 = []
-                    engine_fc_2.run(
-                        [foutputs[0]], dtu_outputs_fc_2,
-                        TopsInference.TIF_ENGINE_RSC_IN_HOST_OUT_HOST)
+                        # CPU RUN fc_3_in
+                        time_begin = time.time()
+                        foutputs = sess.run(
+                                            [
+                                                fc_3_in
+                                            ],
+                                            feed_dict={
+                                                # input: resized_img
+                                                input_fpn_out_2:dtu_outputs_backbone[0],
+                                                input_fpn_out_3:dtu_outputs_backbone[1],
+                                                input_fpn_out_4:dtu_outputs_backbone[2],
+                                                input_fpn_out_5:dtu_outputs_backbone[3],
+                                                fc_2_out:dtu_outputs_fc_2[0]
+                                            })
+                        time_end = time.time()
+                        duration_cpu_fc_3_in = time_end - time_begin
+                        print("[TIME][CPU] calc fc_3_in time-consuming: {:.3f}ms"
+                            .format(duration_cpu_fc_3_in * 1000))
 
-                    # CPU RUN fc_3_in
-                    foutputs = sess.run(
-                                        [
-                                            fc_3_in
-                                        ],
-                                        feed_dict={
-                                            # input: resized_img
-                                            input_fpn_out_2:dtu_outputs_backbone[0],
-                                            input_fpn_out_3:dtu_outputs_backbone[1],
-                                            input_fpn_out_4:dtu_outputs_backbone[2],
-                                            input_fpn_out_5:dtu_outputs_backbone[3],
-                                            fc_2_out:dtu_outputs_fc_2[0]
-                                        })
-                    
-                    # DTU RUN fc_3_out
-                    dtu_outputs_fc_3 = []
-                    engine_fc_3.run(
-                        [foutputs[0]], dtu_outputs_fc_3,
-                        TopsInference.TIF_ENGINE_RSC_IN_HOST_OUT_HOST)
+                        # DTU RUN fc_3_out
+                        time_begin = time.time()
+                        dtu_outputs_fc_3 = []
+                        engine_fc_3.run(
+                            [foutputs[0]], dtu_outputs_fc_3,
+                            TopsInference.TIF_ENGINE_RSC_IN_HOST_OUT_HOST)
+                        time_end = time.time()
+                        duration_dtu_fc_3 = time_end - time_begin
+                        print("[TIME][DTU] fc_3 time-consuming: {:.3f}ms"
+                            .format(duration_dtu_fc_3 * 1000))
 
-                    # CPU RUN fc_maskrcnn_in
-                    foutputs = sess.run(
-                                        [
-                                            fc_maskrcnn_in
-                                        ],
-                                        feed_dict={
-                                            # input: resized_img
-                                            input_fpn_out_2:dtu_outputs_backbone[0],
-                                            input_fpn_out_3:dtu_outputs_backbone[1],
-                                            input_fpn_out_4:dtu_outputs_backbone[2],
-                                            input_fpn_out_5:dtu_outputs_backbone[3],
-                                            fc_3_out:dtu_outputs_fc_3[0]
-                                        })
-                    
-                    # DTU RUN fc_maskrcnn_out
-                    dtu_outputs_fc_maskrcnn = []
-                    engine_fc_maskrcnn.run(
-                        [foutputs[0]], dtu_outputs_fc_maskrcnn,
-                        TopsInference.TIF_ENGINE_RSC_IN_HOST_OUT_HOST)
-                    
-                    # CPU RUN endding
-                    foutputs = sess.run(
-                                        [
-                                            boxes, scores, labels, masks,
-                                            fc_1_in, fc_2_in, fc_3_in, fc_maskrcnn_in
-                                        ],
-                                        feed_dict={
-                                            # input: resized_img
-                                            input_fpn_out_2:dtu_outputs_backbone[0],
-                                            input_fpn_out_3:dtu_outputs_backbone[1],
-                                            input_fpn_out_4:dtu_outputs_backbone[2],
-                                            input_fpn_out_5:dtu_outputs_backbone[3],
-                                            fc_maskrcnn_out:dtu_outputs_fc_maskrcnn[0]
-                                        })
-                    boxes = foutputs[0]
-                    scores = foutputs[1]
-                    labels = foutputs[2]
-                    masks = foutputs[3]
-                    for i in range(4):
-                        print("$$$$"*30)
-                        print(foutputs[4 + i].shape)
+                        # CPU RUN fc_maskrcnn_in
+                        time_begin = time.time()
+                        foutputs = sess.run(
+                                            [
+                                                fc_maskrcnn_in
+                                            ],
+                                            feed_dict={
+                                                # input: resized_img
+                                                input_fpn_out_2:dtu_outputs_backbone[0],
+                                                input_fpn_out_3:dtu_outputs_backbone[1],
+                                                input_fpn_out_4:dtu_outputs_backbone[2],
+                                                input_fpn_out_5:dtu_outputs_backbone[3],
+                                                fc_3_out:dtu_outputs_fc_3[0]
+                                            })
+                        time_end = time.time()
+                        duration_cpu_fc_maskrcnn_in = time_end - time_begin
+                        print("[TIME][CPU] calc fc_maskrcnn_in time-consuming: {:.3f}ms"
+                            .format(duration_cpu_fc_maskrcnn_in * 1000))
 
-
+                        # DTU RUN fc_maskrcnn_out
+                        time_begin = time.time()
+                        dtu_outputs_fc_maskrcnn = []
+                        engine_fc_maskrcnn.run(
+                            [foutputs[0]], dtu_outputs_fc_maskrcnn,
+                            TopsInference.TIF_ENGINE_RSC_IN_HOST_OUT_HOST)
+                        time_end = time.time()
+                        duration_dtu_fc_maskrcnn = time_end - time_begin
+                        print("[TIME][DTU] fc_maskrcnn time-consuming: {:.3f}ms"
+                            .format(duration_dtu_fc_maskrcnn * 1000))
+                        
+                        # CPU RUN endding
+                        time_begin = time.time()
+                        foutputs = sess.run(
+                                            [
+                                                boxes, scores, labels, masks,
+                                                fc_1_in, fc_2_in, fc_3_in, fc_maskrcnn_in
+                                            ],
+                                            feed_dict={
+                                                # input: resized_img
+                                                input_fpn_out_2:dtu_outputs_backbone[0],
+                                                input_fpn_out_3:dtu_outputs_backbone[1],
+                                                input_fpn_out_4:dtu_outputs_backbone[2],
+                                                input_fpn_out_5:dtu_outputs_backbone[3],
+                                                fc_maskrcnn_out:dtu_outputs_fc_maskrcnn[0]
+                                            })
+                        time_end = time.time()
+                        duration_cpu_endding = time_end - time_begin
+                        print("[TIME][CPU] calc endding time-consuming: {:.3f}ms"
+                            .format(duration_cpu_endding * 1000))
+                        time_total_end = time.time()
+                        print("[TIME] TOTAL time-consuming: {:.3f}ms"
+                        .format((time_total_end - time_total_begin) * 1000))
+                        
+                        boxes = foutputs[0]
+                        scores = foutputs[1]
+                        labels = foutputs[2]
+                        masks = foutputs[3]
+                    # for i in range(4):
+                    #     print("$$$$"*30)
+                    #     print(foutputs[4 + i].shape)
 
                     # Some slow numpy postprocessing:
                     boxes = boxes / scale

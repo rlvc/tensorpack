@@ -33,32 +33,15 @@ if __name__ == '__main__':
         os.environ['DTU_UMD_FLAGS'] = 'ib_pool_size=209715200'
         
         ## BACKBONE
-        if(os.path.isfile("./engines512/backbone.exec")):
-             engine_backbone = TopsInference.load("./engines512/backbone.exec")
+        if(os.path.isfile("./engines512/backbone_onnx_32.exec")):
+             engine_backbone = TopsInference.load("./engines512/backbone_onnx_32.exec")
         else:
-            tf_parser_backbone = TopsInference.create_parser(TopsInference.TF_MODEL)
-            tf_parser_backbone.set_input_names(['image'])
-            tf_parser_backbone.set_input_shapes([[512, 512, 3]])
-            tf_parser_backbone.set_output_names([
-                                'fpn/posthoc_3x3_p2/output', 
-                                'fpn/posthoc_3x3_p3/output',
-                                'fpn/posthoc_3x3_p4/output',
-                                'fpn/posthoc_3x3_p5/output',
-                                'generate_fpn_proposals/Lvl2/Reshape_1',
-                                'generate_fpn_proposals/Lvl3/Reshape_1',
-                                'generate_fpn_proposals/Lvl4/Reshape_1',
-                                'generate_fpn_proposals/Lvl5/Reshape_1',
-                                'generate_fpn_proposals/Lvl6/Reshape_1',
-                                'rpn/transpose_1',
-                                'rpn_1/transpose_1',
-                                'rpn_2/transpose_1',
-                                'rpn_3/transpose_1',
-                                'rpn_4/transpose_1'
-                                ])
-            network_backbone = tf_parser_backbone.read(model_path)
+            tf_parser_backbone = TopsInference.create_parser(TopsInference.ONNX_MODEL)
+            network_backbone = tf_parser_backbone.read("/tmp/backbone_sim.onnx")
             optimizer = TopsInference.create_optimizer()
+            # optimizer.set_build_flag(TopsInference.KFP16_MIX)
             engine_backbone = optimizer.build(network_backbone)
-            engine_backbone.save_executable("./engines512/backbone.exec")
+            engine_backbone.save_executable("./engines512/backbone_onnx_32.exec")
        
         #FC cascade_rcnn_stage1
         if(os.path.isfile("./engines512/fc_1.exec")):

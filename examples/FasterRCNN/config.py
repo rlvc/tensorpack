@@ -160,8 +160,8 @@ _C.TRAIN.CHECKPOINT_PERIOD = 20  # period (epochs) to save model
 # preprocessing --------------------
 # Alternative old (worse & faster) setting: 600
 _C.PREPROC.TRAIN_SHORT_EDGE_SIZE = [640, 800]  # [min, max] to sample from
-_C.PREPROC.TEST_SHORT_EDGE_SIZE = 800
-_C.PREPROC.MAX_SIZE = 1333
+_C.PREPROC.TEST_SHORT_EDGE_SIZE = 1600
+_C.PREPROC.MAX_SIZE = 1600
 # mean and std in RGB order.
 # Un-scaled version: [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
 _C.PREPROC.PIXEL_MEAN = [123.675, 116.28, 103.53]

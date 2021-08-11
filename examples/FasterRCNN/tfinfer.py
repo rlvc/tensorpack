@@ -19,26 +19,16 @@ from viz import (
 from config import finalize_configs
 # import argparse
 # import TopsInference
-model_path = "/tmp/maskrcnn_fix.pb"
+model_path = "/tmp/maskrcnn_1600.pb"
 if __name__ == '__main__':
     register_coco(cfg.DATA.BASEDIR)
     finalize_configs(is_training=False)
-    img = cv2.imread("./000000000139.jpg", cv2.IMREAD_COLOR)
+    img = cv2.imread("./sq.jpg", cv2.IMREAD_COLOR)
     orig_shape = img.shape[:2]
     resizer = CustomResize(cfg.PREPROC.TEST_SHORT_EDGE_SIZE, cfg.PREPROC.MAX_SIZE)
     resized_img = resizer.augment(img).astype(np.float32)
     scale = np.sqrt(resized_img.shape[0] * 1.0 / img.shape[0] * resized_img.shape[1] / img.shape[1])
     # resized_img1 = np.load("/tmp/input.npy").astype(np.float32)
-
-    cascade_cropresize_image_template = \
-        "cascade_rcnn_stage{}/multilevel_roi_align/roi_level{}/roi_align/crop_and_resize/transpose"
-    cascade_cropresize_boxes_template = \
-        "cascade_rcnn_stage{}/multilevel_roi_align/roi_level{}/roi_align/crop_and_resize/transform_fpcoor_for_tf/concat"
-    cascade_cropresize_box_ind_template = \
-        "cascade_rcnn_stage{}/multilevel_roi_align/roi_level{}/roi_align/zeros"
-    cascade_cropresize_crop_template = \
-        "cascade_rcnn_stage{}/multilevel_roi_align/roi_level{}/roi_align/crop_and_resize/CropAndResize"
-    cascade_cropresize_dict = {}
         
     with tf.device("/device:CPU:0"):
         tf.compat.v1.reset_default_graph()
@@ -49,22 +39,21 @@ if __name__ == '__main__':
                 sess.graph.as_default()
                 tf.import_graph_def(graph_def, name='')
                 sess.run(tf.compat.v1.global_variables_initializer())
-                for i in range(3):
-                    print("="*88)
+                aaa = []
+                for i in range(10):
                     print("CURRENT {} ROUND".format(i + 1))
-                    print("="*88)
-                    time_total_begin = time.time()
+                    
                     # standard input
                     input = sess.graph.get_tensor_by_name('image:0')
-                    # standard output
                     boxes = sess.graph.get_tensor_by_name('output/boxes:0')
                     scores = sess.graph.get_tensor_by_name('output/scores:0')
                     labels = sess.graph.get_tensor_by_name('output/labels:0')
                     masks = sess.graph.get_tensor_by_name('output/masks:0')
-
+                    
+                    time_total_begin = time.time()
                     foutputs = sess.run(
                                         [
-                                            boxes, scores, labels, masks
+                                            boxes, scores, labels, masks,
                                         ],
                                         feed_dict={
                                             input: resized_img
@@ -73,14 +62,13 @@ if __name__ == '__main__':
                     time_total_end = time.time()
                     print("[TIME] TOTAL time-consuming: {:.3f}ms"
                     .format((time_total_end - time_total_begin) * 1000))
-                    
-                    boxes = foutputs[0]
-                    scores = foutputs[1]
-                    labels = foutputs[2]
-                    masks = foutputs[3]
-                # for i in range(4):
-                #     print("$$$$"*30)
-                #     print(foutputs[4 + i].shape)
+                    aaa.append((time_total_end - time_total_begin) * 1000)
+
+                print(np.mean(aaa[1:]))
+                boxes = foutputs[0]
+                scores = foutputs[1]
+                labels = foutputs[2]
+                masks = foutputs[3]
 
                 # Some slow numpy postprocessing:
                 boxes = boxes / scale

@@ -19,7 +19,7 @@ from viz import (
 from config import finalize_configs
 # import argparse
 import TopsInference
-model_path = "/tmp/maskrcnn_512.pb"
+model_path = "/tmp/maskrcnn_1600.pb"
 if __name__ == '__main__':
     register_coco(cfg.DATA.BASEDIR)
     finalize_configs(is_training=False)
@@ -33,12 +33,12 @@ if __name__ == '__main__':
         os.environ['DTU_UMD_FLAGS'] = 'ib_pool_size=209715200'
         
         ## BACKBONE
-        if(os.path.isfile("./engines512/backbone.exec")):
-             engine_backbone = TopsInference.load("./engines512/backbone.exec")
+        if(os.path.isfile("./engines1600/backbone.exec")):
+             engine_backbone = TopsInference.load("./engines1600/backbone.exec")
         else:
             tf_parser_backbone = TopsInference.create_parser(TopsInference.TF_MODEL)
             tf_parser_backbone.set_input_names(['image'])
-            tf_parser_backbone.set_input_shapes([[512, 512, 3]])
+            tf_parser_backbone.set_input_shapes([[1600, 1600, 3]])
             tf_parser_backbone.set_output_names([
                                 'fpn/posthoc_3x3_p2/output', 
                                 'fpn/posthoc_3x3_p3/output',
@@ -58,11 +58,11 @@ if __name__ == '__main__':
             network_backbone = tf_parser_backbone.read(model_path)
             optimizer = TopsInference.create_optimizer()
             engine_backbone = optimizer.build(network_backbone)
-            engine_backbone.save_executable("./engines512/backbone.exec")
+            engine_backbone.save_executable("./engines1600/backbone.exec")
        
         #FC cascade_rcnn_stage1
-        if(os.path.isfile("./engines512/fc_1.exec")):
-             engine_fc_1 = TopsInference.load("./engines512/fc_1.exec")
+        if(os.path.isfile("./engines1600/fc_1.exec")):
+             engine_fc_1 = TopsInference.load("./engines1600/fc_1.exec")
         else:
             tf_parser_fc_1 = TopsInference.create_parser(TopsInference.TF_MODEL)
             tf_parser_fc_1.set_input_names(['cascade_rcnn_stage1/multilevel_roi_align/output'])
@@ -71,11 +71,11 @@ if __name__ == '__main__':
             network_fc_1 = tf_parser_fc_1.read(model_path)
             optimizer = TopsInference.create_optimizer()
             engine_fc_1 = optimizer.build(network_fc_1)
-            engine_fc_1.save_executable("./engines512/fc_1.exec")
+            engine_fc_1.save_executable("./engines1600/fc_1.exec")
 
         #FC cascade_rcnn_stage2
-        if(os.path.isfile("./engines512/fc_2.exec")):
-             engine_fc_2 = TopsInference.load("./engines512/fc_2.exec")
+        if(os.path.isfile("./engines1600/fc_2.exec")):
+             engine_fc_2 = TopsInference.load("./engines1600/fc_2.exec")
         else:
             tf_parser_fc_2 = TopsInference.create_parser(TopsInference.TF_MODEL)
             tf_parser_fc_2.set_input_names(['cascade_rcnn_stage2/multilevel_roi_align/output'])
@@ -84,11 +84,11 @@ if __name__ == '__main__':
             network_fc_2 = tf_parser_fc_2.read(model_path)
             optimizer = TopsInference.create_optimizer()
             engine_fc_2 = optimizer.build(network_fc_2)
-            engine_fc_2.save_executable("./engines512/fc_2.exec")
+            engine_fc_2.save_executable("./engines1600/fc_2.exec")
 
         #FC cascade_rcnn_stage3
-        if(os.path.isfile("./engines512/fc_3.exec")):
-             engine_fc_3 = TopsInference.load("./engines512/fc_3.exec")
+        if(os.path.isfile("./engines1600/fc_3.exec")):
+             engine_fc_3 = TopsInference.load("./engines1600/fc_3.exec")
         else:
             tf_parser_fc_3 = TopsInference.create_parser(TopsInference.TF_MODEL)
             tf_parser_fc_3.set_input_names(['cascade_rcnn_stage3/multilevel_roi_align/output'])
@@ -97,20 +97,20 @@ if __name__ == '__main__':
             network_fc_3 = tf_parser_fc_3.read(model_path)
             optimizer = TopsInference.create_optimizer()
             engine_fc_3 = optimizer.build(network_fc_3)
-            engine_fc_3.save_executable("./engines512/fc_0.exec")
+            engine_fc_3.save_executable("./engines1600/fc_0.exec")
 
         #FC maskrcnn
-        if(os.path.isfile("./engines512/fc_maskrcnn.exec")):
-             engine_fc_maskrcnn = TopsInference.load("./engines512/fc_maskrcnn.exec")
+        if(os.path.isfile("./engines1600/fc_maskrcnn.exec")):
+             engine_fc_maskrcnn = TopsInference.load("./engines1600/fc_maskrcnn.exec")
         else:
             tf_parser_fc_maskrcnn = TopsInference.create_parser(TopsInference.TF_MODEL)
             tf_parser_fc_maskrcnn.set_input_names(['multilevel_roi_align/output'])
-            tf_parser_fc_maskrcnn.set_input_shapes([[10, 256, 14, 14]])
+            tf_parser_fc_maskrcnn.set_input_shapes([[12, 256, 14, 14]])
             tf_parser_fc_maskrcnn.set_output_names(['maskrcnn/fcn3/output'])
             network_fc_maskrcnn = tf_parser_fc_maskrcnn.read(model_path)
             optimizer = TopsInference.create_optimizer()
             engine_fc_maskrcnn = optimizer.build(network_fc_maskrcnn)
-            engine_fc_maskrcnn.save_executable("./engines512/fc_maskrcnn.exec")
+            engine_fc_maskrcnn.save_executable("./engines1600/fc_maskrcnn.exec")
         
         with tf.device("/device:CPU:0"):
             tf.compat.v1.reset_default_graph()
